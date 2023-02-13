@@ -71,9 +71,8 @@ class ResampleCallBack(pl.Callback):
 
             pl_module.reso_idx += 1
             reso = pl_module.reso_list[pl_module.reso_idx]
-            # TODO: resample 이해하기
-            # 아마도 density threshold 기반으로 voxel 필터링?
-            # 왜 camera list 를 필요로 할까?
+            
+            # Voxel grid resampling 으로 화질 증가
             pl_module.model.resample(
                 reso=reso,
                 sigma_thresh=pl_module.density_thresh,
@@ -244,7 +243,7 @@ class LitPlenoxel(LitModel):
 
         dmodule = self.trainer.datamodule
 
-        # TODO: sparse_grid.py 에서 모델을 가져옴
+        # sparse_grid.py 에서 모델을 가져옴
         self.model = sparse_grid.SparseGrid(
             reso=self.reso_list[self.reso_idx],
             center=dmodule.scene_center,
@@ -271,7 +270,7 @@ class LitPlenoxel(LitModel):
             if self.model.use_background:
                 self.model.background_data.data[..., -1] = self.init_sigma_bg
 
-        # TODO: 카메라 세팅 관련 변수인듯?
+        # 카메라 세팅 관련 변수
         self.ndc_coeffs = dmodule.ndc_coeffs
         return super().setup(stage)
 
@@ -280,8 +279,7 @@ class LitPlenoxel(LitModel):
     ):
         dmodule = self.trainer.datamodule
         return [
-            # TODO: camera model이 왜 필요한지 이해하기
-            # 그냥 input image 와 view scene 의 direction만 있으면 되지 않나?
+            # 카메라 모델 구해서 리턴
             dataclass.Camera(
                 torch.from_numpy(
                     self.extrinsics[i] if extrinsics is None else extrinsics[i]
@@ -336,10 +334,10 @@ class LitPlenoxel(LitModel):
             rays_d = batch["rays_d"].to(torch.float32)
             target = batch["target"].to(torch.float32)
 
-            # TODO: Rays class 이해하기
+            # rays : origin + direction
             rays = dataclass.Rays(rays_o.contiguous(), rays_d.contiguous())
 
-            # TODO: voxel 기반 볼륨 렌더링
+            # 볼륨 렌더링
             rgb = self.model.volume_render_fused(
                 rays,
                 target,
@@ -356,9 +354,6 @@ class LitPlenoxel(LitModel):
 
             # loss function 이 총 5가지인듯
             if self.lambda_tv > 0.0:
-                # TODO: voxel 기반 모델 이해하기
-                # 아마도 모델 내에서 사용되는 backpropagataion 을 위한
-                # grad 계산 함수일듯?
                 self.model.inplace_tv_grad(
                     self.model.density_data.grad,
                     scaling=self.lambda_tv,
@@ -414,7 +409,6 @@ class LitPlenoxel(LitModel):
         lr_sigma_bg = self.lr_sigma_bg_func(gstep - self.lr_basis_begin_step)
         lr_color_bg = self.lr_color_bg_func(gstep - self.lr_basis_begin_step)
 
-        # TODO: optimize functions 이해하기
         if gstep >= self.lr_fg_begin_step:
             self.model.optim_density_step(
                 lr_sigma, beta=self.rms_beta, optim=self.sigma_optim
@@ -528,8 +522,6 @@ class LitPlenoxel(LitModel):
         self.log("val/lpips", lpips_mean.item(), on_epoch=True)
         return super().validation_epoch_end(outputs)
 
-    # TODO: LitModel 의 구현 방식인지 찾아보기
-    # 아마 맞을듯. 이렇게 구현하면 Trainer.train에서 자동으로 사용할듯
     def on_save_checkpoint(self, checkpoint) -> None:
 
         checkpoint["reso_idx"] = self.reso_idx

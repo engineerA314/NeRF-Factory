@@ -284,6 +284,7 @@ class SparseGrid(nn.Module):
         results_sh[mask] = self.sh_data[idxs]
         return results_sigma, results_sh
 
+    # 샘플링
     def sample(
         self,
         points: torch.Tensor,
@@ -311,6 +312,7 @@ class SparseGrid(nn.Module):
         """
         if use_kernel and self.links.is_cuda and _C is not None:
             assert points.is_cuda
+            # points 의 density와 color 를 반환
             return autograd._SampleGridAutogradFunction.apply(
                 self.density_data,
                 self.sh_data,
@@ -373,6 +375,7 @@ class SparseGrid(nn.Module):
     def forward(self, points: torch.Tensor, use_kernel: bool = True):
         return self.sample(points, use_kernel=use_kernel)
 
+    # 모델에서 사용되지 않는 Standard volume rendering
     def volume_render(
         self,
         rays: dataclass.Rays,
@@ -392,6 +395,7 @@ class SparseGrid(nn.Module):
         """
         assert rays.is_cuda
         basis_data = None
+        # points 들의 색깔과 밀도로부터 최종 색을 렌더링
         return autograd._VolumeRenderFunction.apply(
             self.density_data,
             self.sh_data,
@@ -403,6 +407,7 @@ class SparseGrid(nn.Module):
             self.opt.backend,
         )
 
+    # 실제 모델에서 사용되는 볼륨 렌더링은 이것
     def volume_render_fused(
         self,
         rays: dataclass.Rays,
@@ -457,6 +462,7 @@ class SparseGrid(nn.Module):
             )
             grad_holder.mask_background_out = self.sparse_background_indexer
 
+        # lib/plenoxel 안에 있는 C 코드 volume render 함수를 호출하는 듯...
         cu_fn = _C.__dict__[f"volume_render_{self.opt.backend}_fused"]
         #  with utils.Timing("actual_render"):
         cu_fn(
@@ -497,6 +503,7 @@ class SparseGrid(nn.Module):
             sigma_thresh,
         )
 
+    # 화질을 향상시키기 위해 그리드를 리샘플링해 sparse 하게 만듬(?)
     def resample(
         self,
         reso: Union[int, List[int]],

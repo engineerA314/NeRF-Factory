@@ -19,7 +19,7 @@ def norm8b(x):
     x = (x - x.min()) / (x.max() - x.min())
     return to8b(x)
 
-
+# test-epoch-end 에서 이 함수를 호출해 rgb 데이터로부터 iamge를 생성하고 저장한다.
 def store_image(dirpath, rgbs):
     for (i, rgb) in enumerate(rgbs):
         imgname = f"image{str(i).zfill(3)}.png"
